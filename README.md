@@ -24,3 +24,5 @@ python3 run.py
 
 # Github token PAT
 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
+
+# Install packages and make zip file
