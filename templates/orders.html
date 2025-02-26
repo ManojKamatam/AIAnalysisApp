@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Order Management</h1>
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div class="order-list" id="orders-container"></div>
+    </div>
+
+    <script>
+        function loadOrders() {
+            fetch('/api/orders')
+                .then(response => response.json())
+                .then(orders => {
+                    const container = document.getElementById('orders-container');
+                    container.innerHTML = '';
+                    
+                    orders.forEach(order => {
+                        const orderItem = document.createElement('div');
+                        orderItem.className = 'order-item';
+                        orderItem.innerHTML = `
+                            <h3>Order #${order.id}</h3>
+                            <p>Product: ${order.product_name}</p>
+                            <p>Quantity: ${order.quantity}</p>
+                            <p>Status: ${order.status}</p>
+                            <p>Created: ${new Date(order.created_at).toLocaleString()}</p>
+                        `;
+                        container.appendChild(orderItem);
+                    });
+                })
+                .catch(error => {
+                    showError('Error loading orders: ' + error.message);
+                });
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Load orders when page loads
+        document.addEventListener('DOMContentLoaded', loadOrders);
+        // Refresh orders every 30 seconds
+        setInterval(loadOrders, 30000);
+    </script>
+</body>
+</html>
