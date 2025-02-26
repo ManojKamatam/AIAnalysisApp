@@ -26,3 +26,10 @@ python3 run.py
 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
 
 # Install packages and make zip file
+mkdir lambda_package
+cd lambda_package 
+python -m pip install PyGithub -t . --no-user
+Create lambda_function.py as well
+powershell Compress-Archive -Path * -DestinationPath ..\lambda_function.zip -Force
+
+This will create a ZIP file outside lambda_package in the main folder.
