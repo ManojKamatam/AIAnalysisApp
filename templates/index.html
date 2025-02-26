@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Product Dashboard</h1>
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div class="product-grid" id="products-container"></div>
+    </div>
+
+    <script>
+        function loadProducts() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    const container = document.getElementById('products-container');
+                    container.innerHTML = '';
+                    
+                    products.forEach(product => {
+                        const productCard = document.createElement('div');
+                        productCard.className = 'product-card';
+                        productCard.innerHTML = `
+                            <h3>${product.name}</h3>
+                            <p>Price: $${product.price}</p>
+                            <p>Stock: ${product.stock}</p>
+                            <input type="number" min="1" max="${product.stock}" value="1" id="quantity-${product.id}">
+                            <button class="button" onclick="createOrder(${product.id})">Order</button>
+                        `;
+                        container.appendChild(productCard);
+                    });
+                })
+                .catch(error => {
+                    showError('Error loading products: ' + error.message);
+                });
+        }
+
+        function createOrder(productId) {
+            const quantity = document.getElementById(`quantity-${productId}`).value;
+            
+            fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    quantity: parseInt(quantity)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showSuccess(`Order created successfully! Order ID: ${data.order_id}`);
+                    loadProducts(); // Refresh products
+                }
+            })
+            .catch(error => {
+                showError('Error creating order: ' + error.message);
+            });
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.container').insertBefore(successDiv, document.querySelector('.product-grid'));
+            setTimeout(() => {
+                successDiv.remove();
+            }, 5000);
+        }
+
+        // Load products when page loads
+        document.addEventListener('DOMContentLoaded', loadProducts);
+        // Refresh products every 30 seconds
+        setInterval(loadProducts, 30000);
+    </script>
+</body>
+</html>
