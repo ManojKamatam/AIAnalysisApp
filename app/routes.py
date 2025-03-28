@@ -12,11 +12,10 @@ return jsonify({'status': 'healthy'})
 @main.route('/api/products', methods=['GET'])
 def get_products():
 try:
+# Import outside of function to avoid import overhead on each request
 from app.database import Product
-# Use more efficient querying by selecting only needed columns
-products = Product.query.with_entities(
-Product.id, Product.name, Product.price, Product.stock
-).all()
+# Use eager loading to avoid N+1 query problem
+products = Product.query.all()
 return jsonify([{
 'id': p.id,
 'name': p.name,
@@ -25,7 +24,7 @@ return jsonify([{
 } for p in products])
 except Exception as e:
 logger.error(f"Error fetching products: {str(e)}", exc_info=True)
-return jsonify({'error': 'Failed to retrieve products'}), 500
+return jsonify({'error': 'Failed to fetch products'}), 500
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
