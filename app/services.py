@@ -9,28 +9,26 @@ logger = logging.getLogger(__name__)
 class InventoryService:
 @staticmethod
 def check_stock(product_id):
-# Remove random delay that causes performance issues
+# Cache product stock to avoid repetitive database queries
+cache_key = f"product_stock_{product_id}"
+cached_stock = redis_client.get(cache_key)
+
+if cached_stock:
+return int(cached_stock)
+
+# Only perform the database query if not in cache
 product = Product.query.get(product_id)
 if not product:
 raise ValueError("Product not found")
+
+# Cache the result for 1 minute
+redis_client.setex(cache_key, 60, str(product.stock))
 return product.stock
 
 @staticmethod
 def update_stock(product_id, quantity):
 try:
-# Use a more efficient query with specific columns
-product = Product.query.get(product_id)
-if not product:
-raise ValueError("Product not found")
-
-product.stock -= quantity
-db.session.commit()
-
-except Exception as e:
-db.session.rollback()
-logger.error(f"Error updating stock: {str(e)}", exc_info=True)
-raise
-
-class OrderProcessor:
-@staticmethod
-def process_order(product_id, quant... [Response truncated for size]
+# Use query with update instead of fetching and modifying
+result = Product.query.filter_by(id=product_id).update(
+{"stock": Product.stock - quantity},
+synchronize_se... [Response truncated for size]
