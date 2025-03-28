@@ -12,7 +12,8 @@ def health_check():
 @main.route('/api/products', methods=['GET'])
 def get_products():
     try:
-        products = InventoryService.get_all_products()
+        from app.database import Product
+        products = Product.query.all()
         return jsonify([{
             'id': p.id,
             'name': p.name,
