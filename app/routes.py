@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app.services import InventoryService, OrderProcessor
 import logging
+from sqlalchemy.exc import SQLAlchemyError
 
 main = Blueprint('main', __name__)
 logger = logging.getLogger(__name__)
@@ -12,19 +13,24 @@ return jsonify({'status': 'healthy'})
 @main.route('/api/products', methods=['GET'])
 def get_products():
 try:
-# Import outside of function to avoid import overhead on each request
 from app.database import Product
-# Use eager loading to avoid N+1 query problem
-products = Product.query.all()
+# Use more efficient querying to avoid loading all data at once
+products = Product.query.with_entities(
+Product.id, Product.name, Product.price, Product.stock
+).all()
+
 return jsonify([{
 'id': p.id,
 'name': p.name,
 'price': p.price,
 'stock': p.stock
 } for p in products])
+except SQLAlchemyError as e:
+logger.error(f"Database error fetching products: {str(e)}")
+return jsonify({'error': 'Database error occurred'}), 500
 except Exception as e:
-logger.error(f"Error fetching products: {str(e)}", exc_info=True)
-return jsonify({'error': 'Failed to fetch products'}), 500
+logger.error(f"Error fetching products: {str(e)}")
+return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
@@ -41,9 +47,12 @@ data['quantity']
 return jsonify({'order_id': order_id}), 201
 except ValueError as e:
 return jsonify({'error': str(e)}), 400
+except SQLAlchemyError as e:
+logger.error(f"Database error creating order: {str(e)}")
+return jsonify({'error': 'Database error occurred'}), 500
 except Exception as e:
-logger.error(f"Error creating order: {str(e)}", exc_info=True)
-return jsonify({'error': 'Failed to process order'}), 500
+logger.error(f"Error creating order: {str(e)}")
+return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/stock/<int:product_id>', methods=['GET'])
 def check_stock(product_id):
@@ -52,6 +61,9 @@ stock = InventoryService.check_stock(product_id)
 return jsonify({'stock': stock})
 except ValueError as e:
 return jsonify({'error': str(e)}), 404
+except SQLAlchemyError as e:
+logger.error(f"Database error checking stock: {str(e)}")
+return jsonify({'error': 'Database error occurred'}), 500
 except Exception as e:
-logger.error(f"Error checking stock: {str(e)}", exc_info=True)
-return jsonify({'error': 'Failed to check stock'}), 500
+logger.error(f"Error checking stock: {str(e)}")
+return jsonify({'error': 'Internal server error'}), 500
