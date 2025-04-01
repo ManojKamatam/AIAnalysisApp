@@ -1,55 +1,51 @@
 from flask import Blueprint, jsonify, request
-from app.services import InventoryService, OrderProcessor
-import logging
+from app import db, redis_client
+from app.database import Product, Order
 
 main = Blueprint('main', __name__)
-logger = logging.getLogger(__name__)
-
-@main.route('/health')
-def health_check():
-return jsonify({'status': 'healthy'})
 
 @main.route('/api/products', methods=['GET'])
 def get_products():
-try:
-from app.database import Product
-products = Product.query.all()
-return jsonify([{
-'id': p.id,
-'name': p.name,
-'price': p.price,
-'stock': p.stock
-} for p in products])
-except Exception as e:
-logger.error(f"Error fetching products: {str(e)}")
-return jsonify({'error': 'Internal server error'}), 500
+    products = Product.query.all()
+    product_data = []
+    for product in products:
+        product_data.append({
+            'id': product.id,
+            'name': product.name,
+            'price': product.price,
+            'stock': product.stock
+        })
+    return jsonify(product_data)
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
-try:
-data = request.json
-if not data or 'product_id' not in data or 'quantity' not in data:
-return jsonify({'error': 'Invalid request data'}), 400
+    data = request.get_json()
+    product_id = data['product_id']
+    quantity = data['quantity']
 
-order_id = OrderProcessor.process_order(
-data['product_id'],
-data['quantity']
-)
+    product = Product.query.get(product_id)
+    if product.stock < quantity:
+        return jsonify({'message': 'Insufficient stock'}), 400
 
-return jsonify({'order_id': order_id}), 201
-except ValueError as e:
-return jsonify({'error': str(e)}), 400
-except Exception as e:
-logger.error(f"Error creating order: {str(e)}")
-return jsonify({'error': 'Internal server error'}), 500
+    order = Order(product_id=product_id, quantity=quantity)
+    db.session.add(order)
+
+    product.stock -= quantity
+    db.session.commit()
+
+    return jsonify({'message': 'Order created successfully'})
 
 @main.route('/api/stock/<int:product_id>', methods=['GET'])
-def check_stock(product_id):
-try:
-stock = InventoryService.check_stock(product_id)
-return jsonify({'stock': stock})
-except ValueError as e:
-return jsonify({'error': str(e)}), 404
-except Exception as e:
-logger.error(f"Error checking stock: {str(e)}")
-return jsonify({'error': 'Internal server error'}), 500
+def get_stock(product_id):
+    stock = redis_client.get(f'stock_{product_id}')
+    if stock is None:
+        product = Product.query.get(product_id)
+        if product:
+            stock = product.stock
+            redis_client.set(f'stock_{product_id}', stock)
+        else:
+            return jsonify({'message': 'Product not found'}), 404
+    else:
+        stock = int(stock)
+
+    return jsonify({'stock': stock})
