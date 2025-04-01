@@ -1,34 +1,54 @@
 from flask import Blueprint, jsonify, request
-from app import db
-from app.database import Product, Order
+from app.services import InventoryService, OrderProcessor
+from app.database import Product
+import logging
 
 main = Blueprint('main', __name__)
+logger = logging.getLogger(__name__)
+
+@main.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy'})
 
 @main.route('/api/products', methods=['GET'])
 def get_products():
-    products = Product.query.all()
-    return jsonify([{'id': p.id, 'name': p.name, 'price': p.price, 'stock': p.stock} for p in products])
+    try:
+        products = Product.query.all()
+        return jsonify([{
+            'id': p.id,
+            'name': p.name,
+            'price': p.price,
+            'stock': p.stock
+        } for p in products])
+    except Exception as e:
+        logger.exception("Error fetching products")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
-    data = request.get_json()
-    product_id = data['product_id']
-    quantity = data['quantity']
-
-    product = Product.query.get(product_id)
-    if product and product.stock >= quantity:
-        order = Order(product_id=product_id, quantity=quantity)
-        product.stock -= quantity
-        db.session.add(order)
-        db.session.commit()
-        return jsonify({'message': 'Order created successfully'})
-    else:
-        return jsonify({'message': 'Insufficient stock'}), 400
+    data = request.json
+    if not data or 'product_id' not in data or 'quantity' not in data:
+        return jsonify({'error': 'Invalid request data'}), 400
+    
+    try:
+        order_id = OrderProcessor.process_order(
+            data['product_id'],
+            data['quantity']
+        )
+        return jsonify({'order_id': order_id}), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.exception("Error creating order")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/stock/<int:product_id>', methods=['GET'])
-def get_stock(product_id):
-    product = Product.query.get(product_id)
-    if product:
-        return jsonify({'id': product.id, 'name': product.name, 'stock': product.stock})
-    else:
-        return jsonify({'message': 'Product not found'}), 404
+def check_stock(product_id):
+    try:
+        stock = InventoryService.check_stock(product_id)
+        return jsonify({'stock': stock})
+    except Product.DoesNotExist:
+        return jsonify({'error': 'Product not found'}), 404
+    except Exception as e:
+        logger.exception("Error checking stock")
+        return jsonify({'error': 'Internal server error'}), 500
