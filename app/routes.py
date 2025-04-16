@@ -21,13 +21,13 @@ def get_products():
             'stock': p.stock
         } for p in products])
     except Exception as e:
-        logger.error(f"Error fetching products: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error fetching products: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
     try:
-        data = request.json
+        data = request.get_json()
         if not data or 'product_id' not in data or 'quantity' not in data:
             return jsonify({'error': 'Invalid request data'}), 400
         
@@ -38,9 +38,10 @@ def create_order():
         
         return jsonify({'order_id': order_id}), 201
     except ValueError as e:
+        logger.error(str(e), exc_info=True)
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        logger.error(f"Error creating order: {str(e)}")
+        logger.error(f"Error creating order: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/stock/<int:product_id>', methods=['GET'])
@@ -49,7 +50,8 @@ def check_stock(product_id):
         stock = InventoryService.check_stock(product_id)
         return jsonify({'stock': stock})
     except ValueError as e:
+        logger.error(str(e), exc_info=True)
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        logger.error(f"Error checking stock: {str(e)}")
+        logger.error(f"Error checking stock: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
