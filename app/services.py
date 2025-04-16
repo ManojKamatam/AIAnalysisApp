@@ -41,13 +41,13 @@ class OrderProcessor:
             cache_key = f"product_{product_id}"
             cached_stock = redis_client.get(cache_key)
             
-            if not cached_stock:
+            if cached_stock:
+                stock = int(cached_stock)
+            else:
                 # Simulate slow database query
                 time.sleep(0.5)
                 stock = InventoryService.check_stock(product_id)
                 redis_client.setex(cache_key, 300, str(stock))
-            else:
-                stock = int(cached_stock)
             
             if stock < quantity:
                 raise ValueError("Insufficient stock")
