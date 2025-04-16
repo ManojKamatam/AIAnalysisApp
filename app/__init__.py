@@ -17,7 +17,7 @@ def create_app():
 
     # Initialize Redis
     global redis_client
-    redis_client = redis.from_url(app.config['REDIS_URL'])
+    redis_client = redis.Redis.from_url(app.config['REDIS_URL'])
 
     # Register blueprints
     from app.routes import main
