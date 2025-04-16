@@ -22,7 +22,7 @@ def get_products():
         } for p in products])
     except Exception as e:
         logger.error(f"Error fetching products: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @main.route('/api/orders', methods=['POST'])
 def create_order():
@@ -38,6 +38,7 @@ def create_order():
         
         return jsonify({'order_id': order_id}), 201
     except ValueError as e:
+        logger.error(f"Error creating order: {str(e)}")
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         logger.error(f"Error creating order: {str(e)}")
@@ -49,6 +50,7 @@ def check_stock(product_id):
         stock = InventoryService.check_stock(product_id)
         return jsonify({'stock': stock})
     except ValueError as e:
+        logger.error(f"Error checking stock: {str(e)}")
         return jsonify({'error': str(e)}), 404
     except Exception as e:
         logger.error(f"Error checking stock: {str(e)}")
